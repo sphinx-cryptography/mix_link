@@ -1,23 +1,23 @@
 [package]
 name = "mix_link"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["David Stainton <dawuud@riseup.net>"]
 description = "message oriented noise based cryptographic link layer for mixnets"
-homepage = "https://github.com/david415/mix_link"
-repository = "https://github.com/david415/mix_link"
+homepage = "https://github.com/sphinx-cryptography/mix_link"
+repository = "https://github.com/sphinx-cryptography/mix_link"
 documentation = "https://docs.rs/mix_link/"
 readme = "README.md"
 keywords = ["cryptography", "noise", "network", "mixnet", "link-layer"]
 license = "AGPL-3.0-only"
 
 [dependencies]
-snow = "0.4.0"
-ecdh_wrapper = "0.0.7"
+snow = "0.4.2"
+ecdh_wrapper = "0.0.9"
 byteorder = "1.2.2"
-sphinxcrypto = "0.0.15"
+sphinxcrypto = "0.0.19"
 
 [dependencies.subtle]
-version = "1"
+version = "2"
 features = ["nightly"]
 
 [dev-dependencies]

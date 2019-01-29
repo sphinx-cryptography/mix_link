@@ -1,6 +1,6 @@
 
 # mix_link
-[![](https://travis-ci.org/david415/mix_link.png?branch=master)](https://www.travis-ci.org/david415/mix_link) [![](https://img.shields.io/crates/v/mix_link.svg)](https://crates.io/crates/mix_link) [![](https://docs.rs/mix_link/badge.svg)](https://docs.rs/mix_link/)
+[![](https://travis-ci.org/sphinx-cryptography/mix_link.png?branch=master)](https://www.travis-ci.org/sphinx-cryptography/mix_link) [![](https://img.shields.io/crates/v/mix_link.svg)](https://crates.io/crates/mix_link) [![](https://docs.rs/mix_link/badge.svg)](https://docs.rs/mix_link/)
 
 
 This crate provides a Noise Protocol Framework based cryptographic
@@ -38,7 +38,7 @@ PQ hybrid forward secrecy mode via New Hope Simple.
 To import `mix_link`, add the following to the dependencies section of
 your project's `Cargo.toml`:
 ```toml
-mix_link = "^0.0.4"
+mix_link = "^0.0.5"
 ```
 Then import the crate as:
 ```rust,no_run
