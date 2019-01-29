@@ -341,13 +341,13 @@ impl Error for HandshakeError {
             InvalidNoiseSpecError => None,
             NoPeerKeyError => None,
             SessionCreateError => None,
-            ClientHandshakeError(x) => x.cause(),
-            ServerHandshakeError(x) => x.cause(),
+            ClientHandshakeError(x) => x.source(),
+            ServerHandshakeError(x) => x.source(),
             InvalidStateError => None,
-            IOError(x) => x.cause(),
+            IOError(x) => x.source(),
             SnowError(_) => None,
-            ReceiveMessageError(x) => x.cause(),
-            SendMessageError(x) => x.cause(),
+            ReceiveMessageError(x) => x.source(),
+            SendMessageError(x) => x.source(),
             InvalidHandshakeFinalize => None,
         }
     }
@@ -421,7 +421,7 @@ impl Error for SendMessageError {
             InvalidMessageSize => None,
             EncryptFail => None,
             IOError(_) => None,
-            RekeyError(x) => x.cause(),
+            RekeyError(x) => x.source(),
         }
     }
 }
@@ -473,7 +473,7 @@ impl Error for ReceiveMessageError {
             DecryptFail => None,
             CommandError(_) => None,
             IOError(_) => None,
-            RekeyError(x) => x.cause(),
+            RekeyError(x) => x.source(),
         }
     }
 }
