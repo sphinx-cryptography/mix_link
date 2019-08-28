@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub const NOISE_PARAMS: & str = "Noise_XX_25519_ChaChaPoly_BLAKE2b";
+pub const NOISE_PARAMS: & str = "Noise_XXhfs_25519_ChaChaPoly_BLAKE2b";
 pub const PROLOGUE: [u8;1] = [0u8;1];
 pub const PROLOGUE_SIZE: usize = 1;
 pub const NOISE_MESSAGE_MAX_SIZE: usize = 65535;
@@ -22,7 +22,9 @@ pub const KEY_SIZE: usize = 32;
 pub const MAC_SIZE: usize = 16;
 pub const MAX_ADDITIONAL_DATA_SIZE: usize = 255;
 pub const AUTH_MESSAGE_SIZE: usize = 1 + 8 + MAX_ADDITIONAL_DATA_SIZE;
-pub const NOISE_HANDSHAKE_MESSAGE1_SIZE: usize = PROLOGUE_SIZE + KEY_SIZE;
-pub const NOISE_HANDSHAKE_MESSAGE2_SIZE: usize = 360;
-pub const NOISE_HANDSHAKE_MESSAGE3_SIZE: usize = 328;
+pub const SEND_A_SIZE: usize = 1568;
+pub const SEND_B_SIZE: usize = 1584;
 pub const NOISE_MESSAGE_HEADER_SIZE: usize = MAC_SIZE + 4;
+pub const NOISE_HANDSHAKE_MESSAGE1_SIZE: usize = PROLOGUE_SIZE + KEY_SIZE + SEND_A_SIZE;
+pub const NOISE_HANDSHAKE_MESSAGE2_SIZE: usize = (KEY_SIZE + SEND_B_SIZE + MAC_SIZE + KEY_SIZE) + (MAC_SIZE + AUTH_MESSAGE_SIZE);
+pub const NOISE_HANDSHAKE_MESSAGE3_SIZE: usize = (MAC_SIZE + KEY_SIZE) + (MAC_SIZE + AUTH_MESSAGE_SIZE);

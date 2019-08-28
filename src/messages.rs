@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use subtle::ConstantTimeEq;
 use byteorder::{ByteOrder, BigEndian};
 use snow::Builder;
+use snow::params::KemChoice;
 use ecdh_wrapper::{PrivateKey, PublicKey};
 
 use super::errors::{HandshakeError, AuthenticationError};
@@ -177,7 +178,7 @@ pub struct MessageBuilder {
 
 impl MessageBuilder {
     pub fn new(config: SessionConfig, is_initiator: bool) -> Result<MessageBuilder, HandshakeError> {
-        let noise_params;
+        let mut noise_params;
         match NOISE_PARAMS.parse() {
             Ok(x) => {
                 noise_params = x;
@@ -193,6 +194,7 @@ impl MessageBuilder {
                 .local_private_key(&config.authentication_key.to_vec())
                 .remote_public_key(&(config.peer_public_key.unwrap()).to_vec())
                 .prologue(&PROLOGUE)
+                .kem(KemChoice::Kyber1024)
                 .build_initiator() {
                     Ok(x) => x,
                     Err(_) => return Err(HandshakeError::SessionCreateError),
@@ -211,6 +213,7 @@ impl MessageBuilder {
         let handshake_state = match noise_builder
             .local_private_key(&config.authentication_key.to_vec())
             .prologue(&PROLOGUE)
+            .kem(KemChoice::Kyber1024)
             .build_responder() {
                 Ok(x) => x,
                 Err(_) => return Err(HandshakeError::SessionCreateError),
@@ -333,9 +336,15 @@ impl MessageBuilder {
             unix_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
         let mut mesg = [0u8; NOISE_HANDSHAKE_MESSAGE2_SIZE];
-        let mut _len = match self.handshake_state.as_mut().unwrap().write_message(&our_auth.to_vec().unwrap(), &mut mesg) {
-            Ok(x) => x,
-            Err(_) => return Err(ServerHandshakeError::Noise2WriteError),
+        let mut _len = match self.handshake_state.as_mut() {
+            Some(x) => {
+                let auth = our_auth.to_vec().unwrap();
+                match x.write_message(&auth, &mut mesg) {
+                    Err(e) => return Err(ServerHandshakeError::Noise2WriteError(e)),
+                    Ok(y) => y,
+                }
+            },
+            None => return Err(ServerHandshakeError::InvalidStateError),
         };
         assert_eq!(NOISE_HANDSHAKE_MESSAGE2_SIZE, _len);
         Ok(mesg)

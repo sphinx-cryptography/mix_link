@@ -11,11 +11,15 @@ keywords = ["cryptography", "noise", "network", "mixnet", "link-layer"]
 license = "AGPL-3.0-only"
 
 [dependencies]
-snow = "0.6.0"
 ecdh_wrapper = "0.0.9"
 byteorder = "1.2.2"
 sphinxcrypto = "0.1.0"
 subtle = { version = "2", default-features = false }
+
+[dependencies.snow]
+git = "https://github.com/dsprenkels/snow"
+branch = "hfs"
+features = ["hfs", "pqclean_kyber1024"]
 
 [features]
 nightly = ["subtle/nightly"]
