@@ -14,12 +14,17 @@ license = "AGPL-3.0-only"
 snow = "0.4.2"
 ecdh_wrapper = "0.0.9"
 byteorder = "1.2.2"
-sphinxcrypto = "0.0.19"
+sphinxcrypto = "0.1.0"
+subtle = { version = "2", default-features = false }
 
-[dependencies.subtle]
-version = "2"
-features = ["nightly"]
+[features]
+nightly = ["subtle/nightly"]
+std = ["subtle/std"]
 
 [dev-dependencies]
 rustc-serialize = "0.3.24"
 rand = "^0.4.2"
+serde_derive = "1.0.94"
+serde = "1.0.94"
+serde_json = "1.0.40"
+hex = "0.3.2"
