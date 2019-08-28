@@ -165,7 +165,8 @@ pub struct SessionConfig {
 /// A cryptographic protocol message factory type.
 #[derive(Debug)]
 pub struct MessageBuilder {
-    session: snow::Session,
+    handshake_state: Option<snow::HandshakeState>,
+    transport_state: Option<snow::TransportState>,
     state: State,
     additional_data: Vec<u8>,
     pub authenticator: PeerAuthenticator,
@@ -188,7 +189,7 @@ impl MessageBuilder {
             if config.peer_public_key.is_none() {
                 return Err(HandshakeError::NoPeerKeyError);
             }
-            let session = match noise_builder
+            let handshake_state = match noise_builder
                 .local_private_key(&config.authentication_key.to_vec())
                 .remote_public_key(&(config.peer_public_key.unwrap()).to_vec())
                 .prologue(&PROLOGUE)
@@ -200,13 +201,14 @@ impl MessageBuilder {
                 state: State::Init,
                 additional_data: config.additional_data,
                 authenticator: config.authenticator,
-                session,
+                handshake_state: Some(handshake_state),
+                transport_state: None,
                 is_initiator,
                 clock_skew: 0,
                 peer_credentials: None,
             });
         }
-        let session = match noise_builder
+        let handshake_state = match noise_builder
             .local_private_key(&config.authentication_key.to_vec())
             .prologue(&PROLOGUE)
             .build_responder() {
@@ -217,7 +219,8 @@ impl MessageBuilder {
             state: State::Init,
             additional_data: config.additional_data,
             authenticator: config.authenticator,
-            session,
+            handshake_state: Some(handshake_state),
+            transport_state: None,
             is_initiator,
             clock_skew: 0,
             peer_credentials: None,
@@ -235,7 +238,7 @@ impl MessageBuilder {
     pub fn client_handshake1(&mut self) -> Result<[u8; NOISE_HANDSHAKE_MESSAGE1_SIZE], ClientHandshakeError> {
 	// -> (prologue), e, f
         let mut msg = [0u8; NOISE_MESSAGE_MAX_SIZE];
-        let _len = match self.session.write_message(&[0u8;0], &mut msg) {
+        let _len = match self.handshake_state.as_mut().unwrap().write_message(&[0u8;0], &mut msg) {
             Ok(x) => x,
             Err(_) => return Err(ClientHandshakeError::Noise1WriteError),
         };
@@ -256,7 +259,7 @@ impl MessageBuilder {
     pub fn received_server_handshake1(&mut self, message: [u8; NOISE_HANDSHAKE_MESSAGE2_SIZE]) -> Result<(), ClientHandshakeError> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut raw_auth = [0u8; AUTH_MESSAGE_SIZE];
-        let _len = match self.session.read_message(&message, &mut raw_auth) {
+        let _len = match self.handshake_state.as_mut().unwrap().read_message(&message, &mut raw_auth) {
             Ok(x) => x,
             Err(_) => return Err(ClientHandshakeError::Noise2ReadError),
         };
@@ -266,7 +269,7 @@ impl MessageBuilder {
         };
 
         // Authenticate the peer.
-        let raw_peer_key = match self.session.get_remote_static() {
+        let raw_peer_key = match self.handshake_state.as_mut().unwrap().get_remote_static() {
             Some(x) => x,
             None => return Err(ClientHandshakeError::FailedToGetRemoteStatic),
         };
@@ -300,7 +303,7 @@ impl MessageBuilder {
             // leak their system time to the peer.
             unix_time: 0,
         };
-        let _len = match self.session.write_message(&our_auth.to_vec().unwrap(), &mut msg) {
+        let _len = match self.handshake_state.as_mut().unwrap().write_message(&our_auth.to_vec().unwrap(), &mut msg) {
             Ok(x) => x,
             Err(_) => return Err(ClientHandshakeError::Noise3WriteError),
         };
@@ -318,7 +321,7 @@ impl MessageBuilder {
             return Err(ServerHandshakeError::PrologueMismatchError);
         }
         let mut _msg = [0u8; NOISE_HANDSHAKE_MESSAGE1_SIZE];
-        let _len = match self.session.read_message(&message[PROLOGUE_SIZE..], &mut _msg) {
+        let _len = match self.handshake_state.as_mut().unwrap().read_message(&message[PROLOGUE_SIZE..], &mut _msg) {
             Ok(x) => x,
             Err(_) => return Err(ServerHandshakeError::Noise1ReadError),
         };
@@ -330,7 +333,7 @@ impl MessageBuilder {
             unix_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
         let mut mesg = [0u8; NOISE_HANDSHAKE_MESSAGE2_SIZE];
-        let mut _len = match self.session.write_message(&our_auth.to_vec().unwrap(), &mut mesg) {
+        let mut _len = match self.handshake_state.as_mut().unwrap().write_message(&our_auth.to_vec().unwrap(), &mut mesg) {
             Ok(x) => x,
             Err(_) => return Err(ServerHandshakeError::Noise2WriteError),
         };
@@ -347,13 +350,13 @@ impl MessageBuilder {
             return Err(ServerHandshakeError::InvalidStateError);
         }
         let mut raw_auth = [0u8; AUTH_MESSAGE_SIZE];
-        let _match = self.session.read_message(&message, &mut raw_auth);
+        let _match = self.handshake_state.as_mut().unwrap().read_message(&message, &mut raw_auth);
         match _match {
             Ok(x) => x,
             Err(_) => return Err(ServerHandshakeError::Noise3ReadError),
         };
         let peer_auth = AuthenticateMessage::from_bytes(&raw_auth).unwrap();
-        let raw_peer_key = self.session.get_remote_static().unwrap();
+        let raw_peer_key = self.handshake_state.as_mut().unwrap().get_remote_static().unwrap();
         let mut peer_key = PublicKey::default();
         match peer_key.from_bytes(raw_peer_key) {
             Ok(_) => {},
@@ -374,7 +377,8 @@ impl MessageBuilder {
     pub fn into_transport_mode(self) -> Result<Self, HandshakeError> {
         // Transition into transport mode after handshake is finished.
         Ok(Self {
-            session: self.session.into_transport_mode()?,
+            handshake_state: None,
+            transport_state: Some(self.handshake_state.unwrap().into_transport_mode()?),
             state: self.state,
             additional_data: self.additional_data,
             authenticator: self.authenticator,
@@ -392,7 +396,7 @@ impl MessageBuilder {
         let mut ct_hdr = [0u8; 4];
         BigEndian::write_u32(&mut ct_hdr, ct_len as u32);
         let mut ciphertext_header = [0u8; NOISE_MESSAGE_MAX_SIZE];
-        let _result = self.session.write_message(&ct_hdr, &mut ciphertext_header);
+        let _result = self.transport_state.as_mut().unwrap().write_message(&ct_hdr, &mut ciphertext_header);
         let _header_len;
         match _result {
             Ok(x) => {
@@ -403,7 +407,7 @@ impl MessageBuilder {
             },
         }
         let mut ciphertext = [0u8; NOISE_MESSAGE_MAX_SIZE];
-        let _result = self.session.write_message(&message, &mut ciphertext);
+        let _result = self.transport_state.as_mut().unwrap().write_message(&message, &mut ciphertext);
         let mut _payload_len;
         match _result {
             Ok(x) => {
@@ -421,7 +425,7 @@ impl MessageBuilder {
 
     pub fn decrypt_message_header(&mut self, message: &[u8]) -> Result<u32, ReceiveMessageError> {
         let mut header = [0u8; NOISE_MESSAGE_MAX_SIZE];
-        match self.session.read_message(&message[..NOISE_MESSAGE_HEADER_SIZE], &mut header) {
+        match self.transport_state.as_mut().unwrap().read_message(&message[..NOISE_MESSAGE_HEADER_SIZE], &mut header) {
             Ok(x) => {
                 assert_eq!(x, 4);
                 Ok(BigEndian::read_u32(&header[..NOISE_MESSAGE_HEADER_SIZE]))
@@ -432,7 +436,7 @@ impl MessageBuilder {
 
     pub fn decrypt_message(&mut self, message: &[u8]) -> Result<Vec<u8>, ReceiveMessageError> {
         let mut plaintext = [0u8; NOISE_MESSAGE_MAX_SIZE];
-        match self.session.read_message(&message, &mut plaintext) {
+        match self.transport_state.as_mut().unwrap().read_message(&message, &mut plaintext) {
             Ok(_len) => Ok(plaintext[.._len].to_vec()),
             Err(_) => Err(ReceiveMessageError::DecryptFail),
         }

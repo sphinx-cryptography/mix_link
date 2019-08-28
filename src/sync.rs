@@ -233,7 +233,7 @@ mod tests {
 
             for connection in listener.incoming() {
                 match connection {
-                    Ok(mut stream) => {
+                    Ok(stream) => {
                         session.initialize(stream).unwrap();
 
                         session = session.into_transport_mode().unwrap();
@@ -306,7 +306,7 @@ mod tests {
 
             for connection in listener.incoming() {
                 match connection {
-                    Ok(mut stream) => {
+                    Ok(stream) => {
                         session.initialize(stream).unwrap();
                         session = session.into_transport_mode().unwrap();
                         session.finalize_handshake().unwrap();

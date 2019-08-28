@@ -20,7 +20,7 @@ use std::error::{Error};
 use std::fmt;
 use std::io::{self};
 
-use snow::SnowError;
+use snow::Error as SnowError;
 
 
 #[derive(Debug)]
@@ -82,7 +82,7 @@ impl Error for RekeyError {
 }
 
 impl From<SnowError> for RekeyError {
-    fn from(error: snow::SnowError) -> Self {
+    fn from(error: SnowError) -> Self {
         RekeyError::SnowError(error)
     }
 }
@@ -220,7 +220,7 @@ impl Error for ClientHandshakeError {
 }
 
 impl From<SnowError> for ClientHandshakeError {
-    fn from(error: snow::SnowError) -> Self {
+    fn from(error: SnowError) -> Self {
         ClientHandshakeError::SnowError(error)
     }
 }
@@ -309,7 +309,7 @@ pub enum HandshakeError {
     InvalidStateError,
     InvalidHandshakeFinalize,
     IOError(io::Error),
-    SnowError(snow::SnowError),
+    SnowError(SnowError),
     ReceiveMessageError(ReceiveMessageError),
     SendMessageError(SendMessageError),
 }
@@ -383,8 +383,8 @@ impl From<io::Error> for HandshakeError {
     }
 }
 
-impl From<snow::SnowError> for HandshakeError {
-    fn from(error: snow::SnowError) -> Self {
+impl From<SnowError> for HandshakeError {
+    fn from(error: SnowError) -> Self {
         HandshakeError::SnowError(error)
     }
 }

@@ -53,7 +53,7 @@ mod tests {
         // server
         let server_keypair = PrivateKey::generate(&mut r).unwrap();
         let server_builder: Builder = Builder::new(noise_params.clone());
-        let mut server_session = server_builder
+        let mut server_handshake_state = server_builder
             .local_private_key(&server_keypair.to_vec())
             .prologue(&prologue)
             .build_responder().unwrap();
@@ -63,7 +63,7 @@ mod tests {
         // client
         let client_keypair = PrivateKey::generate(&mut r).unwrap();
         let client_builder: Builder = Builder::new(noise_params.clone());
-        let mut client_session = client_builder
+        let mut client_handshake_state = client_builder
             .local_private_key(&client_keypair.to_vec())
             .remote_public_key(&server_keypair.public_key().to_vec())
             .prologue(&prologue)
@@ -72,32 +72,32 @@ mod tests {
         let mut client_in = [0u8; 65535];
 
         // handshake
-        let mut _client_len = client_session.write_message(&[0u8; 0], &mut client_out).unwrap();
-        let mut _server_len = server_session.read_message(&client_out[.._client_len], &mut server_in).unwrap();
+        let mut _client_len = client_handshake_state.write_message(&[0u8; 0], &mut client_out).unwrap();
+        let mut _server_len = server_handshake_state.read_message(&client_out[.._client_len], &mut server_in).unwrap();
         println!("c -> s {}", _client_len);
 
-        _server_len = server_session.write_message(&[0u8; 0], &mut server_out).unwrap();
-        _client_len = client_session.read_message(&server_out[.._server_len], &mut client_in).unwrap();
+        _server_len = server_handshake_state.write_message(&[0u8; 0], &mut server_out).unwrap();
+        _client_len = client_handshake_state.read_message(&server_out[.._server_len], &mut client_in).unwrap();
         println!("s -> c {}", _server_len);
 
-        _client_len = client_session.write_message(&[], &mut client_out).unwrap();
-        server_session.read_message(&client_out[.._client_len], &mut server_in).unwrap();
+        _client_len = client_handshake_state.write_message(&[], &mut client_out).unwrap();
+        server_handshake_state.read_message(&client_out[.._client_len], &mut server_in).unwrap();
         println!("c -> s {}", _client_len);
 
         // data transfer
-        client_session = client_session.into_transport_mode().unwrap();
-        server_session = server_session.into_transport_mode().unwrap();
+        let mut client_transfer_state = client_handshake_state.into_transport_mode().unwrap();
+        let mut server_transfer_state = server_handshake_state.into_transport_mode().unwrap();
 
         // server talks to client
         let server_banner = b"yo";
-        _server_len = server_session.write_message(server_banner, &mut server_out).unwrap();
-        client_session.read_message(&server_out[.._server_len], &mut client_in).unwrap();
+        _server_len = server_transfer_state.write_message(server_banner, &mut server_out).unwrap();
+        client_transfer_state.read_message(&server_out[.._server_len], &mut client_in).unwrap();
         assert_eq!(&client_in[..server_banner.len()], server_banner);
 
         // client talks to server
         let client_response = b"ho";
-        _client_len = client_session.write_message(client_response, &mut client_out).unwrap();
-        server_session.read_message(&client_out[.._client_len], &mut server_in).unwrap();
+        _client_len = client_transfer_state.write_message(client_response, &mut client_out).unwrap();
+        server_transfer_state.read_message(&client_out[.._client_len], &mut server_in).unwrap();
         assert_eq!(client_response, &server_in[..client_response.len()]);
     }
 }
