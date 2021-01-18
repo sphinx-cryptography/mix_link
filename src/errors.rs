@@ -43,7 +43,7 @@ impl Error for AuthenticationError {
         "I'm a command error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::AuthenticationError::*;
         match self {
             InvalidSize => None,
@@ -73,7 +73,7 @@ impl Error for RekeyError {
         "I'm a command error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::RekeyError::*;
         match self {
             SnowError(_) => None,
@@ -135,7 +135,7 @@ impl Error for CommandError {
         "I'm a command error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::CommandError::*;
         match *self {
             InvalidNoiseSpecError => None,
@@ -199,7 +199,7 @@ impl Error for ClientHandshakeError {
         "I'm a client handshake error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::ClientHandshakeError::*;
         match *self {
             InvalidNoiseSpecError => None,
@@ -271,7 +271,7 @@ impl Error for ServerHandshakeError {
         "I'm a server handshake error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::ServerHandshakeError::*;
         match *self {
             PrologueMismatchError => None,
@@ -335,7 +335,7 @@ impl Error for HandshakeError {
         "I'm a handshake error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::HandshakeError::*;
         match self {
             InvalidNoiseSpecError => None,
@@ -415,7 +415,7 @@ impl Error for SendMessageError {
         "I'm a send message error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::SendMessageError::*;
         match self {
             InvalidMessageSize => None,
@@ -466,7 +466,7 @@ impl Error for ReceiveMessageError {
         "I'm a receive message error."
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use self::ReceiveMessageError::*;
         match self {
             InvalidMessageSize => None,
