@@ -9,8 +9,7 @@ link layer wire protocol for constructing mix networks.
 
 # warning
 
-This code has not been formally audited. Use it at your own
-risk!
+This code has not been formally audited. Use it at your own risk!
 
 
 # details
@@ -20,17 +19,19 @@ You can read the design specification document here:
 
 * https://github.com/katzenpost/docs/blob/master/specs/wire-protocol.rst
 
-This cryptographic link layer protocol uses ``Noise_XX_25519_ChaChaPoly_BLAKE2b``
-which you can read about here in the Noise Protocol specification document:
+However note that I've change the prologue value (our protocol version number) to 1
+instead of 0 to differentiate it from the older version which used NewHope Simple.
+We now use the newer KEM, Kyber.
+
+This cryptographic link layer protocol uses ``Noise_XXhfs_25519+Kyber1024_ChaChaPoly_BLAKE2b``.
+You can read about the XX handshake pattern here in the Noise Protocol specification document:
 
 * http://noiseprotocol.org/noise.html
 
-This differ's from Yawning's design in that I am not using the
-post-quantum via New Hope Simple for hybrid forward secrecy of the XX
-handshake pattern. In order to make this possible we would first need
-an implementation of New Hope Simple in rust and then to modify snow,
-the rust noise library such that it would have HFS mode, that is the
-PQ hybrid forward secrecy mode via New Hope Simple.
+However you'll also want to understand our hybrid forward secrecy protocol modification
+using the Kyber post-quantum key encapsulation mechanism. Please see "KEM-based Hybrid Forward Secrecy for Noise":
+
+* https://github.com/noiseprotocol/noise_hfs_spec/blob/master/output/noise_hfs.pdf
 
 
 # Usage
@@ -38,7 +39,7 @@ PQ hybrid forward secrecy mode via New Hope Simple.
 To import `mix_link`, add the following to the dependencies section of
 your project's `Cargo.toml`:
 ```toml
-mix_link = "^0.0.5"
+mix_link = "^0.1.0"
 ```
 Then import the crate as:
 ```rust,no_run
@@ -49,8 +50,10 @@ extern crate mix_link;
 # acknowledgments
 
 Thanks to Yawning Angel for the design of this wire protocol.
+Thanks to Daan Sprenkels for implementing Kyber1024 HFS for Snow.
 
 
 # license
 
 GNU AFFERO GENERAL PUBLIC LICENSE
+

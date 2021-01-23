@@ -1,6 +1,6 @@
 [package]
 name = "mix_link"
-version = "0.0.5"
+version = "0.1.0"
 authors = ["David Stainton <dawuud@riseup.net>"]
 description = "message oriented noise based cryptographic link layer for mixnets"
 homepage = "https://github.com/sphinx-cryptography/mix_link"
@@ -15,7 +15,7 @@ snow = { version = "0.7.2", features = ["hfs", "pqclean_kyber1024"] }
 ecdh_wrapper = "0.0.9"
 byteorder = "1.2.2"
 sphinxcrypto = "0.1.0"
-subtle = { version = "2", default-features = false }
+subtle = "2.4.0"
 
 [features]
 nightly = ["subtle/nightly"]
