@@ -1,6 +1,6 @@
 
 # mix_link
-[![](https://travis-ci.org/sphinx-cryptography/mix_link.png?branch=master)](https://www.travis-ci.org/sphinx-cryptography/mix_link) [![](https://img.shields.io/crates/v/mix_link.svg)](https://crates.io/crates/mix_link) [![](https://docs.rs/mix_link/badge.svg)](https://docs.rs/mix_link/)
+[![](https://img.shields.io/crates/v/mix_link.svg)](https://crates.io/crates/mix_link) [![](https://docs.rs/mix_link/badge.svg)](https://docs.rs/mix_link/)
 
 
 This crate provides a post-quantum Noise Protocol Framework based
