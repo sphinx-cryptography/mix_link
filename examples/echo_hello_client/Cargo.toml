@@ -1,0 +1,10 @@
+[package]
+name = "echo_hello_client"
+version = "0.0.1"
+authors = ["David Stainton <dstainton415@gmail.com>"]
+
+[dependencies]
+rand = "^0.4.2"
+rustc-serialize = "0.3"
+ecdh_wrapper = "0.0.9"
+mix_link = { version = "0.2.0", path = "../.." }
