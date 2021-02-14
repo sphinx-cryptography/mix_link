@@ -1,5 +1,5 @@
 // sync.rs - synchronous (blocking) IO networking
-// Copyright (C) 2018  David Anthony Stainton.
+// Copyright (C) 2021  David Anthony Stainton.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -68,31 +68,34 @@ impl Session {
         let tcp_writer = self.writer_tcp_stream.as_mut().unwrap();
         let factory = self.handshake_builder.as_mut().unwrap();
         if self.is_initiator {
-            // c -> s
+            // -> (prologue), e, e1
+            println!("-> (prologue), e, e1");
             let client_handshake1 = factory.client_handshake1()?;
             tcp_writer.write_all(&client_handshake1)?;
             factory.sent_client_handshake1();
 
-            // s -> c
+	    // <- e, ee, ekem1, s, es, (auth)
+            println!("<- e, ee, ekem1, s, es, (auth)");
             let mut server_handshake1 = [0; NOISE_HANDSHAKE_MESSAGE2_SIZE];
             tcp_reader.read_exact(&mut server_handshake1)?;
             factory.received_server_handshake1(server_handshake1)?;
 
-            // c -> s
+	    // -> s, se, (auth)
+            println!("-> s, se, (auth) of length {}\n", NOISE_HANDSHAKE_MESSAGE3_SIZE);
             let client_handshake2 = factory.client_handshake2()?;
             tcp_writer.write_all(&client_handshake2)?;
             factory.sent_client_handshake2();
         } else {
-            // c -> s
+	    // -> (prologue), e, e1
             let mut client_handshake1 = [0u8; NOISE_HANDSHAKE_MESSAGE1_SIZE];
             tcp_reader.read_exact(&mut client_handshake1)?;
             let server_handshake1 = factory.received_client_handshake1(client_handshake1).unwrap();
 
-            // s -> c
+	    // <- e, ee, ekem1, s, es, (auth)
             tcp_writer.write_all(&server_handshake1)?;
             factory.sent_server_handshake1();
 
-            // c -> s
+	    // -> s, se, (auth)
             let mut client_handshake2 = [0u8; NOISE_HANDSHAKE_MESSAGE3_SIZE];
             tcp_reader.read_exact(&mut client_handshake2)?;
             factory.received_client_handshake2(client_handshake2).unwrap();
@@ -141,7 +144,7 @@ impl Session {
         let mut to_send = vec![];
         to_send.extend(self.transport_builder.as_mut().unwrap().lock().unwrap().encrypt_message(&ct)?);
 
-        // XXX https://github.com/mcginty/snow/issues/35
+        self.transport_builder.as_mut().unwrap().lock().unwrap().rekey_outgoing();
 
         self.writer_tcp_stream.as_mut().unwrap().write_all(&to_send)?;
         Ok(())
@@ -158,13 +161,15 @@ impl Session {
         self.reader_tcp_stream.as_mut().unwrap().read_exact(&mut ct)?;
         let body = self.transport_builder.as_mut().unwrap().lock().unwrap().decrypt_message(&ct)?;
 
-        // XXX https://github.com/mcginty/snow/issues/35
+        self.transport_builder.as_mut().unwrap().lock().unwrap().rekey_incoming();
 
         Ok(Command::from_bytes(&body)?)
     }
 
     pub fn close(&mut self) {
-        // XXX https://github.com/mcginty/snow/issues/35
+        self.transport_builder.as_mut().unwrap().lock().unwrap().rekey_outgoing();
+        self.transport_builder.as_mut().unwrap().lock().unwrap().rekey_incoming();
+        self.transport_builder.as_ref().unwrap().lock().unwrap().wipe();
         let _ = self.reader_tcp_stream.as_mut().unwrap().shutdown(Shutdown::Both);
         let _ = self.writer_tcp_stream.as_mut().unwrap().shutdown(Shutdown::Both);
     }
@@ -173,7 +178,7 @@ impl Session {
         self.handshake_builder.as_ref().unwrap().peer_credentials()
     }
 
-    pub fn clock_skew(&self) -> u64 {
+    pub fn clock_skew(&self) -> u32 {
         self.transport_builder.as_ref().unwrap().lock().unwrap().clock_skew()
     }
 

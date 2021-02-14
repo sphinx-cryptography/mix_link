@@ -1,5 +1,5 @@
 // sessions.rs - client and server protocol sessions
-// Copyright (C) 2018  David Anthony Stainton.
+// Copyright (C) 2021  David Anthony Stainton.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -34,6 +34,7 @@ use super::constants::{NOISE_MESSAGE_MAX_SIZE,
                        NOISE_HANDSHAKE_MESSAGE2_SIZE,
                        NOISE_HANDSHAKE_MESSAGE3_SIZE,
                        NOISE_PARAMS,
+                       HEADER_SIZE,
                        PROLOGUE,
                        PROLOGUE_SIZE,
                        MAC_SIZE,
@@ -44,7 +45,7 @@ use super::constants::{NOISE_MESSAGE_MAX_SIZE,
 #[derive(Debug)]
 struct AuthenticateMessage {
     ad: Vec<u8>,
-    unix_time: u64, // Seconds since unix epoch.
+    unix_time: u32, // Seconds since unix epoch.
 }
 
 impl AuthenticateMessage {
@@ -55,7 +56,7 @@ impl AuthenticateMessage {
         let ad_len = b[0] as usize;
         Ok(AuthenticateMessage{
             ad: b[1..=ad_len].to_vec(),
-            unix_time: BigEndian::read_u64(&b[1+MAX_ADDITIONAL_DATA_SIZE..]),
+            unix_time: BigEndian::read_u32(&b[1+MAX_ADDITIONAL_DATA_SIZE..]),
         })
     }
 
@@ -68,8 +69,8 @@ impl AuthenticateMessage {
         b.push(self.ad.len() as u8);
         b.extend(&self.ad);
         b.extend(&zero_bytes[..zero_bytes.len() - self.ad.len()]);
-        let mut tmp = vec![0u8; 8];
-        BigEndian::write_u64(&mut tmp, self.unix_time);
+        let mut tmp = vec![0u8; 4];
+        BigEndian::write_u32(&mut tmp, self.unix_time);
         b.extend(&tmp);
         Ok(b)
     }
@@ -79,6 +80,12 @@ impl AuthenticateMessage {
 pub struct PeerCredentials {
     pub additional_data: Vec<u8>,
     pub public_key: PublicKey,
+}
+
+impl PeerCredentials {
+    pub fn wipe(&mut self) {
+        self.additional_data.clear();
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -171,7 +178,7 @@ pub struct MessageBuilder {
     additional_data: Vec<u8>,
     pub authenticator: PeerAuthenticator,
     is_initiator: bool,
-    clock_skew: u64,
+    clock_skew: u32,
     peer_credentials: Option<Box<PeerCredentials>>,
 }
 
@@ -227,11 +234,24 @@ impl MessageBuilder {
         })
     }
 
+    pub fn wipe(&mut self) {
+        self.additional_data.clear();
+        self.clock_skew = 0;
+    }
+
+    pub fn rekey_incoming(&mut self) {
+        self.transport_state.as_mut().unwrap().rekey_incoming();
+    }
+
+    pub fn rekey_outgoing(&mut self) {
+        self.transport_state.as_mut().unwrap().rekey_outgoing();
+    }
+
     pub fn peer_credentials(&self) -> &PeerCredentials {
         self.peer_credentials.as_ref().unwrap()
     }
 
-    pub fn clock_skew(&self) -> u64 {
+    pub fn clock_skew(&self) -> u32 {
         self.clock_skew
     }
 
@@ -257,7 +277,7 @@ impl MessageBuilder {
     }
 
     pub fn received_server_handshake1(&mut self, message: [u8; NOISE_HANDSHAKE_MESSAGE2_SIZE]) -> Result<(), ClientHandshakeError> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32;
         let mut raw_auth = [0u8; AUTH_MESSAGE_SIZE];
         let _len = match self.handshake_state.as_mut().unwrap().read_message(&message, &mut raw_auth) {
             Ok(x) => x,
@@ -330,7 +350,7 @@ impl MessageBuilder {
         // send server's handshake1 message
         let our_auth = AuthenticateMessage {
             ad: self.additional_data.clone(),
-            unix_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            unix_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as u32,
         };
         let mut mesg = [0u8; NOISE_HANDSHAKE_MESSAGE2_SIZE];
         let mut _len = match self.handshake_state.as_mut().unwrap().write_message(&our_auth.to_vec().unwrap(), &mut mesg) {
@@ -424,11 +444,11 @@ impl MessageBuilder {
     }
 
     pub fn decrypt_message_header(&mut self, message: &[u8]) -> Result<u32, ReceiveMessageError> {
-        let mut header = [0u8; NOISE_MESSAGE_MAX_SIZE];
+        let mut header = [0u8; HEADER_SIZE];
         match self.transport_state.as_mut().unwrap().read_message(&message[..NOISE_MESSAGE_HEADER_SIZE], &mut header) {
             Ok(x) => {
                 assert_eq!(x, 4);
-                Ok(BigEndian::read_u32(&header[..NOISE_MESSAGE_HEADER_SIZE]))
+                Ok(BigEndian::read_u32(&header))
             },
             Err(_) => Err(ReceiveMessageError::DecryptFail),
         }
