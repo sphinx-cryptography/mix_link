@@ -349,7 +349,6 @@ impl Command {
 
 fn get_consensus_from_bytes(b: &[u8]) -> Result<Command, CommandError> {
     if b.len() != GET_CONSENSUS_SIZE {
-        println!("wtfff {} != {}", b.len(), GET_CONSENSUS_SIZE);
         return Err(CommandError::GetConsensusDecodeError);
     }
     Ok(Command::GetConsensus{

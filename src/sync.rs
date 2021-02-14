@@ -69,19 +69,16 @@ impl Session {
         let factory = self.handshake_builder.as_mut().unwrap();
         if self.is_initiator {
             // -> (prologue), e, e1
-            println!("-> (prologue), e, e1");
             let client_handshake1 = factory.client_handshake1()?;
             tcp_writer.write_all(&client_handshake1)?;
             factory.sent_client_handshake1();
 
 	    // <- e, ee, ekem1, s, es, (auth)
-            println!("<- e, ee, ekem1, s, es, (auth)");
             let mut server_handshake1 = [0; NOISE_HANDSHAKE_MESSAGE2_SIZE];
             tcp_reader.read_exact(&mut server_handshake1)?;
             factory.received_server_handshake1(server_handshake1)?;
 
 	    // -> s, se, (auth)
-            println!("-> s, se, (auth) of length {}\n", NOISE_HANDSHAKE_MESSAGE3_SIZE);
             let client_handshake2 = factory.client_handshake2()?;
             tcp_writer.write_all(&client_handshake2)?;
             factory.sent_client_handshake2();
@@ -265,7 +262,6 @@ mod tests {
 
             let stream = TcpStream::connect(server_addr.clone()).expect("connection failed");
             session.initialize(stream).unwrap();
-            println!("client handshake completed!");
 
             session = session.into_transport_mode().unwrap();
             session.finalize_handshake().unwrap();
@@ -331,7 +327,6 @@ mod tests {
                         session_threads.push(thread::spawn(move|| {
                             loop {
                                 let cmd = Command::NoOp{};
-                                println!("server send NoOp");
                                 match session.send_command(&cmd) {
                                     Ok(_) => {},
                                     Err(_) => return,
@@ -367,7 +362,6 @@ mod tests {
             session.initialize(stream).unwrap();
             session = session.into_transport_mode().unwrap();
             session.finalize_handshake().unwrap();
-            println!("client handshake completed!");
 
             let mut acc = 0;
             loop {
@@ -377,7 +371,6 @@ mod tests {
                             session.close();
                             return
                         }
-                        println!("client received command, sending NoOp response");
                         session.send_command(&Command::NoOp{}).unwrap();
                         acc += 1;
                     },
