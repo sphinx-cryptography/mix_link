@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+//!
+//! This crate provides a post-quantum Noise Protocol Framework based
+//! cryptographic wire protocol for constructing mix networks. The main
+//! intention of this protocol is to interoperate with the Katzenpost wire
+//! protocol. That is, this crate could be used in the composition of a
+//! Rust client for the Katzenpost decryption mix network.
+//!
+
 extern crate snow;
 extern crate ecdh_wrapper;
 extern crate byteorder;
