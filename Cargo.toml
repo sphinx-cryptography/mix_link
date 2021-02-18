@@ -14,7 +14,7 @@ license = "AGPL-3.0-only"
 snow = { version = "0.7.3", git = "https://github.com/sphinx-cryptography/snow.git", branch = "master", features = ["hfs", "nist3_kyber1024"] }
 byteorder = "1.2.2"
 sphinxcrypto = "0.1.0"
-subtle = "2.4.0"
+subtle = { package = "subtle-ng", version = "2.4.1" }
 x25519-dalek-ng = { git = "https://github.com/sphinx-cryptography/x25519-dalek-ng.git", branch = "master" }
 
 [features]
