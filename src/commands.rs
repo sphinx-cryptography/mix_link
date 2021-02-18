@@ -16,7 +16,7 @@
 
 use byteorder::{ByteOrder, BigEndian};
 use subtle::ConstantTimeEq;
-use ecdh_wrapper::{KEY_SIZE, PublicKey};
+use x25519_dalek_ng::PublicKey;
 
 use sphinxcrypto::constants::{FORWARD_PAYLOAD_SIZE,
                               PAYLOAD_TAG_SIZE,
@@ -26,6 +26,7 @@ use sphinxcrypto::constants::{FORWARD_PAYLOAD_SIZE,
                               USER_FORWARD_PAYLOAD_SIZE};
 
 use super::errors::CommandError;
+use super::constants::KEY_SIZE;
 
 const CMD_OVERHEAD: usize = 1 + 1 + 4;
 
@@ -266,7 +267,7 @@ impl Command {
                 out[0] = VOTE;
                 BigEndian::write_u32(&mut out[2..6], (VOTE_OVERHEAD+payload.len()) as u32);
                 BigEndian::write_u64(&mut out[6..14], *epoch);
-                out[14..14+KEY_SIZE].copy_from_slice(&public_key.as_array());
+                out[14..14+KEY_SIZE].copy_from_slice(public_key.as_bytes());
                 out[14+KEY_SIZE..].copy_from_slice(&payload);
                 out
             },
@@ -396,11 +397,12 @@ fn vote_from_bytes(b: &[u8]) -> Result<Command, CommandError> {
     if b.len() < VOTE_OVERHEAD {
         return Err(CommandError::VoteDecodeError);
     }
-    let mut _public_key = PublicKey::default();
-    _public_key.from_bytes(&b[8..40]).unwrap();
+    let mut public_key_bytes = [0u8; 32];
+    public_key_bytes.copy_from_slice(&b[8..40]);
+    let public_key = PublicKey::from(public_key_bytes);
     Ok(Command::Vote{
         epoch: BigEndian::read_u64(&b[..8]),
-        public_key: _public_key,
+        public_key: public_key,
         payload: b[VOTE_OVERHEAD..].to_vec(),
     })
 }
@@ -487,20 +489,16 @@ fn message_from_bytes(b: &[u8]) -> Result<Command, CommandError> {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-    //extern crate rustc_serialize;
-    extern crate ecdh_wrapper;
+    extern crate rand_core;
 
-    //use self::rustc_serialize::hex::ToHex;
-    use self::rand::os::OsRng;
-    use ecdh_wrapper::PrivateKey;
+    use x25519_dalek_ng::{StaticSecret, PublicKey};
 
     use super::*;
 
+    use self::rand_core::OsRng;
+
     #[test]
     fn commands_test() {
-        let mut r = OsRng::new().expect("failure to create an OS RNG");
-
         // test no op
         let no_op = Command::NoOp{};
         let no_op_bytes = no_op.clone().to_vec();
@@ -552,8 +550,8 @@ mod tests {
         assert_eq!(post_descriptor_status_bytes, post_descriptor_status2_bytes);
 
         // test vote
-        let private_key = PrivateKey::generate(&mut r).unwrap();
-        let public_key = private_key.public_key();
+        let private_key = StaticSecret::new(OsRng);
+        let public_key = PublicKey::from(&private_key);
         let vote = Command::Vote{
             epoch: 123,
             public_key,

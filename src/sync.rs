@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 extern crate snow;
-extern crate ecdh_wrapper;
+extern crate x25519_dalek_ng;
 
 use std::net::{TcpStream, Shutdown};
 use std::io::prelude::*;
@@ -188,37 +188,45 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-    extern crate ecdh_wrapper;
+    extern crate rand_core;
 
     use std::{thread, time};
     use std::time::Duration;
     use std::net::TcpListener;
     use std::net::TcpStream;
-    use self::rand::os::OsRng;
-    use ecdh_wrapper::PrivateKey;
+    use std::collections::HashMap;
+
+    use x25519_dalek_ng::{PublicKey, StaticSecret};
+
     use super::{Session, SessionConfig};
     use super::super::messages::{PeerAuthenticator, ProviderAuthenticatorState, ClientAuthenticatorState};
     use super::super::commands::{Command};
+    use self::rand_core::OsRng;
 
 
     #[test]
     fn handshake_test() {
         let mut threads = vec![];
         let server_addr = "127.0.0.1:8000";
-        let mut rng = OsRng::new().expect("failure to create an OS RNG");
-        let server_keypair = PrivateKey::generate(&mut rng).unwrap();
-        let client_keypair = PrivateKey::generate(&mut rng).unwrap();
+        let client_secret = StaticSecret::new(OsRng);
+        let server_secret = StaticSecret::new(OsRng);
 
-        let mut provider_auth = ProviderAuthenticatorState::default();
-        provider_auth.client_map.insert(client_keypair.public_key(), true);
+        let mut client_map = HashMap::new();
+        client_map.insert(PublicKey::from(&client_secret), true);
+        let provider_auth = ProviderAuthenticatorState {
+            mix_map: HashMap::default(),
+            client_map: client_map,
+            from_client: false,
+            from_mix: false,
+        };
         let provider_authenticator = PeerAuthenticator::Provider(provider_auth);
 
-        let mut client_auth = ClientAuthenticatorState::default();
-        client_auth.peer_public_key = server_keypair.public_key();
+        let client_auth = ClientAuthenticatorState{
+            peer_public_key: PublicKey::from(&server_secret),
+        };
         let client_authenticator = PeerAuthenticator::Client(client_auth);
 
-        let server_keypair_clone = server_keypair.clone();
+        let server_keypair_clone = server_secret.clone();
 
         // server listener
         threads.push(thread::spawn(move|| {
@@ -227,7 +235,7 @@ mod tests {
             // server
             let server_config = SessionConfig {
                 authenticator: provider_authenticator,
-                authentication_key: server_keypair,
+                authentication_key: server_secret,
                 peer_public_key: None,
                 additional_data: vec![],
             };
@@ -254,8 +262,8 @@ mod tests {
             // client
             let client_config = SessionConfig {
                 authenticator: client_authenticator,
-                authentication_key: client_keypair,
-                peer_public_key: Some(server_keypair_clone.public_key()),
+                authentication_key: client_secret,
+                peer_public_key: Some(PublicKey::from(&server_keypair_clone)),
                 additional_data: vec![],
             };
             let mut session = Session::new(client_config, true).unwrap();
@@ -278,19 +286,24 @@ mod tests {
     fn reader_writer_thread_test() {
         let mut threads = vec![];
         let server_addr = "127.0.0.1:8001";
-        let mut rng = OsRng::new().expect("failure to create an OS RNG");
-        let server_keypair = PrivateKey::generate(&mut rng).unwrap();
-        let client_keypair = PrivateKey::generate(&mut rng).unwrap();
+        let client_secret = StaticSecret::new(OsRng);
+        let server_secret = StaticSecret::new(OsRng);
 
-        let mut provider_auth = ProviderAuthenticatorState::default();
-        provider_auth.client_map.insert(client_keypair.public_key(), true);
+        let mut client_map = HashMap::new();
+        client_map.insert(PublicKey::from(&client_secret), true);
+        let provider_auth = ProviderAuthenticatorState {
+            mix_map: HashMap::default(),
+            client_map: client_map,
+            from_client: false,
+            from_mix: false,
+        };
         let provider_authenticator = PeerAuthenticator::Provider(provider_auth);
-
-        let mut client_auth = ClientAuthenticatorState::default();
-        client_auth.peer_public_key = server_keypair.public_key();
+        let client_auth = ClientAuthenticatorState{
+            peer_public_key: PublicKey::from(&server_secret),
+        };
         let client_authenticator = PeerAuthenticator::Client(client_auth);
 
-        let server_keypair_clone = server_keypair.clone();
+        let server_keypair_clone = server_secret.clone();
 
         // server listener
         threads.push(thread::spawn(move|| {
@@ -299,7 +312,7 @@ mod tests {
             // server
             let server_config = SessionConfig {
                 authenticator: provider_authenticator,
-                authentication_key: server_keypair,
+                authentication_key: server_secret,
                 peer_public_key: None,
                 additional_data: vec![],
             };
@@ -352,8 +365,8 @@ mod tests {
             // client
             let client_config = SessionConfig {
                 authenticator: client_authenticator,
-                authentication_key: client_keypair,
-                peer_public_key: Some(server_keypair_clone.public_key()),
+                authentication_key: client_secret,
+                peer_public_key: Some(PublicKey::from(&server_keypair_clone)),
                 additional_data: vec![],
             };
             let mut session = Session::new(client_config, true).unwrap();

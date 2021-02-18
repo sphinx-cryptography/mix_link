@@ -23,9 +23,9 @@
 //!
 
 extern crate snow;
-extern crate ecdh_wrapper;
 extern crate byteorder;
 extern crate subtle;
+extern crate x25519_dalek_ng;
 extern crate sphinxcrypto;
 
 pub mod errors;
@@ -38,42 +38,37 @@ pub mod sync;
 #[cfg(test)]
 mod tests {
 
-    //extern crate rustc_serialize;
-    extern crate ecdh_wrapper;
-    extern crate rand;
+    extern crate rand_core;
     extern crate snow;
-
-    use self::rand::os::OsRng;
 
     use snow::Builder;
     use snow::params::NoiseParams;
+    use self::rand_core::OsRng;
 
-    //use self::rustc_serialize::hex::ToHex;
-    use self::ecdh_wrapper::PrivateKey;
-
+    use x25519_dalek_ng::{PublicKey, StaticSecret};
 
     #[test]
     fn noise_test() {
         let noise_params: NoiseParams = "Noise_XX_25519_ChaChaPoly_BLAKE2b".parse().unwrap();
         let prologue = [0u8;1];
-        let mut r = OsRng::new().expect("failure to create an OS RNG");
 
         // server
-        let server_keypair = PrivateKey::generate(&mut r).unwrap();
+        let server_secret = StaticSecret::new(OsRng);
         let server_builder: Builder = Builder::new(noise_params.clone());
         let mut server_handshake_state = server_builder
-            .local_private_key(&server_keypair.to_vec())
+            .local_private_key(&server_secret.to_bytes())
             .prologue(&prologue)
             .build_responder().unwrap();
         let mut server_in = [0u8; 65535];
         let mut server_out = [0u8; 65535];
 
         // client
-        let client_keypair = PrivateKey::generate(&mut r).unwrap();
+        let client_secret = StaticSecret::new(OsRng);
         let client_builder: Builder = Builder::new(noise_params.clone());
+
         let mut client_handshake_state = client_builder
-            .local_private_key(&client_keypair.to_vec())
-            .remote_public_key(&server_keypair.public_key().to_vec())
+            .local_private_key(&client_secret.to_bytes())
+            .remote_public_key(&PublicKey::from(&server_secret).to_bytes())
             .prologue(&prologue)
             .build_initiator().unwrap();
         let mut client_out = [0u8; 65535];

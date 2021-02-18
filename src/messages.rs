@@ -15,7 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 extern crate snow;
-extern crate ecdh_wrapper;
+extern crate x25519_dalek_ng;
+
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ use std::collections::HashMap;
 use subtle::ConstantTimeEq;
 use byteorder::{ByteOrder, BigEndian};
 use snow::Builder;
-use ecdh_wrapper::{PrivateKey, PublicKey};
+use x25519_dalek_ng::{PublicKey, StaticSecret};
 
 use super::errors::{HandshakeError, AuthenticationError};
 use super::errors::{ClientHandshakeError, ServerHandshakeError, ReceiveMessageError, SendMessageError};
@@ -88,12 +89,12 @@ impl PeerCredentials {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ServerAuthenticatorState{
     pub mix_map: HashMap<PublicKey, bool>,
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ProviderAuthenticatorState{
     pub mix_map: HashMap<PublicKey, bool>,
     pub client_map: HashMap<PublicKey, bool>,
@@ -101,7 +102,7 @@ pub struct ProviderAuthenticatorState{
     pub from_mix: bool,
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ClientAuthenticatorState{
     pub peer_public_key: PublicKey,
 }
@@ -161,10 +162,10 @@ pub enum State {
 }
 
 /// A session configuration type.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone)]
 pub struct SessionConfig {
     pub authenticator: PeerAuthenticator,
-    pub authentication_key: PrivateKey,
+    pub authentication_key: StaticSecret,
     pub peer_public_key: Option<PublicKey>,
     pub additional_data: Vec<u8>,
 }
@@ -197,8 +198,8 @@ impl MessageBuilder {
                 return Err(HandshakeError::NoPeerKeyError);
             }
             let handshake_state = match noise_builder
-                .local_private_key(&config.authentication_key.to_vec())
-                .remote_public_key(&(config.peer_public_key.unwrap()).to_vec())
+                .local_private_key(&config.authentication_key.to_bytes())
+                .remote_public_key(&(config.peer_public_key.unwrap()).to_bytes())
                 .prologue(&PROLOGUE)
                 .build_initiator() {
                     Ok(x) => x,
@@ -216,7 +217,7 @@ impl MessageBuilder {
             });
         }
         let handshake_state = match noise_builder
-            .local_private_key(&config.authentication_key.to_vec())
+            .local_private_key(&config.authentication_key.to_bytes())
             .prologue(&PROLOGUE)
             .build_responder() {
                 Ok(x) => x,
@@ -293,11 +294,10 @@ impl MessageBuilder {
             Some(x) => x,
             None => return Err(ClientHandshakeError::FailedToGetRemoteStatic),
         };
-        let mut peer_key = PublicKey::default();
-        match peer_key.from_bytes(raw_peer_key) {
-            Ok(_x) => {},
-            Err(_y) => return Err(ClientHandshakeError::FailedToDecodeRemoteStatic),
-        }
+
+        let mut peer_key_bytes = [0u8; 32];
+        peer_key_bytes.copy_from_slice(raw_peer_key);
+        let peer_key = PublicKey::from(peer_key_bytes);
         self.peer_credentials = Some(Box::new(PeerCredentials {
             additional_data: peer_auth.ad,
             public_key: peer_key,
@@ -377,11 +377,9 @@ impl MessageBuilder {
         };
         let peer_auth = AuthenticateMessage::from_bytes(&raw_auth).unwrap();
         let raw_peer_key = self.handshake_state.as_mut().unwrap().get_remote_static().unwrap();
-        let mut peer_key = PublicKey::default();
-        match peer_key.from_bytes(raw_peer_key) {
-            Ok(_) => {},
-            Err(_) => return Err(ServerHandshakeError::FailedToDecodeRemoteStatic),
-        }
+        let mut peer_key_bytes = [0u8; 32];
+        peer_key_bytes.copy_from_slice(raw_peer_key);
+        let peer_key = PublicKey::from(peer_key_bytes);
         self.peer_credentials = Some(Box::new(PeerCredentials {
             additional_data: peer_auth.ad,
             public_key: peer_key,
@@ -465,16 +463,12 @@ impl MessageBuilder {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-    extern crate ecdh_wrapper;
-    //extern crate rustc_serialize;
+    extern crate rand_core;
 
-    //use self::rustc_serialize::hex::ToHex;
-    use self::rand::os::OsRng;
-    use ecdh_wrapper::PrivateKey;
     use super::super::sphinxcrypto::constants::USER_FORWARD_PAYLOAD_SIZE;
     use super::{PeerAuthenticator, ProviderAuthenticatorState};
     use super::super::commands::Command;
+    use self::rand_core::OsRng;
     use super::*;
 
     #[test]
@@ -490,31 +484,38 @@ mod tests {
 
     #[test]
     fn message_handshake_test() {
-        let mut r = OsRng::new().expect("failure to create an OS RNG");
-
-        let server_keypair = PrivateKey::generate(&mut r).unwrap();
-        let client_keypair = PrivateKey::generate(&mut r).unwrap();
+        let server_secret = StaticSecret::new(OsRng);
+        let client_secret = StaticSecret::new(OsRng);
 
         // server
-        let mut provider_auth = ProviderAuthenticatorState::default();
-        provider_auth.client_map.insert(client_keypair.public_key(), true);
+        let mut client_map = HashMap::new();
+        client_map.insert(PublicKey::from(&client_secret), true);
+        let provider_auth = ProviderAuthenticatorState {
+            mix_map: HashMap::default(),
+            client_map: client_map,
+            from_client: false,
+            from_mix: false,
+        };
         let provider_authenticator = PeerAuthenticator::Provider(provider_auth);
+
         let server_config = SessionConfig {
             authenticator: provider_authenticator,
-            authentication_key: server_keypair.clone(),
+            authentication_key: server_secret.clone(),
             peer_public_key: None,
             additional_data: vec![],
         };
         let mut server_session = MessageBuilder::new(server_config, false).unwrap();
 
         // client
-        let mut client_auth = ClientAuthenticatorState::default();
-        client_auth.peer_public_key = server_keypair.public_key();
+        let client_auth = ClientAuthenticatorState{
+            peer_public_key: PublicKey::from(&server_secret),
+        };
         let client_authenticator = PeerAuthenticator::Client(client_auth);
+
         let client_config = SessionConfig {
             authenticator: client_authenticator,
-            authentication_key: client_keypair,
-            peer_public_key: Some(server_keypair.public_key()),
+            authentication_key: client_secret,
+            peer_public_key: Some(PublicKey::from(&server_secret)),
             additional_data: vec![],
         };
         let mut client_session = MessageBuilder::new(client_config, true).unwrap();
