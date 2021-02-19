@@ -22,6 +22,8 @@
 //! Rust client for the Katzenpost decryption mix network.
 //!
 
+#[macro_use]
+extern crate arrayref;
 extern crate snow;
 extern crate byteorder;
 extern crate subtle;

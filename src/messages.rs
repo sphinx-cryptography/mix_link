@@ -294,10 +294,7 @@ impl MessageBuilder {
             Some(x) => x,
             None => return Err(ClientHandshakeError::FailedToGetRemoteStatic),
         };
-
-        let mut peer_key_bytes = [0u8; 32];
-        peer_key_bytes.copy_from_slice(raw_peer_key);
-        let peer_key = PublicKey::from(peer_key_bytes);
+        let peer_key = PublicKey::from(*array_ref![raw_peer_key, 0, 32]);
         self.peer_credentials = Some(Box::new(PeerCredentials {
             additional_data: peer_auth.ad,
             public_key: peer_key,
@@ -328,9 +325,7 @@ impl MessageBuilder {
             Err(_) => return Err(ClientHandshakeError::Noise3WriteError),
         };
         assert_eq!(NOISE_HANDSHAKE_MESSAGE3_SIZE, _len);
-        let mut _msg3 = [0u8; NOISE_HANDSHAKE_MESSAGE3_SIZE];
-        _msg3.copy_from_slice(&msg[..NOISE_HANDSHAKE_MESSAGE3_SIZE]);
-        Ok(_msg3)
+        Ok(*array_ref![msg, 0, NOISE_HANDSHAKE_MESSAGE3_SIZE])
     }
 
     pub fn received_client_handshake1(&mut self, message: [u8; NOISE_HANDSHAKE_MESSAGE1_SIZE]) -> Result<[u8; NOISE_HANDSHAKE_MESSAGE2_SIZE], ServerHandshakeError> {
@@ -377,9 +372,7 @@ impl MessageBuilder {
         };
         let peer_auth = AuthenticateMessage::from_bytes(&raw_auth).unwrap();
         let raw_peer_key = self.handshake_state.as_mut().unwrap().get_remote_static().unwrap();
-        let mut peer_key_bytes = [0u8; 32];
-        peer_key_bytes.copy_from_slice(raw_peer_key);
-        let peer_key = PublicKey::from(peer_key_bytes);
+        let peer_key = PublicKey::from(*array_ref![raw_peer_key, 0, 32]);
         self.peer_credentials = Some(Box::new(PeerCredentials {
             additional_data: peer_auth.ad,
             public_key: peer_key,
