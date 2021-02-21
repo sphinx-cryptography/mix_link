@@ -1,15 +1,20 @@
-extern crate rand;
+
+#[macro_use]
+extern crate arrayref;
+
+//extern crate rand;
 extern crate rustc_serialize;
-extern crate ecdh_wrapper;
+extern crate x25519_dalek_ng;
 extern crate mix_link;
 
 use std::net::TcpStream;
-use rand::os::OsRng;
-use rustc_serialize::hex::{FromHex, ToHex};
+//use rand::os::OsRng;
+//use rustc_serialize::hex::{FromHex, ToHex};
+use rustc_serialize::hex::FromHex;
 
-use ecdh_wrapper::{PublicKey, PrivateKey};
+use x25519_dalek_ng::{PublicKey, StaticSecret};
 use mix_link::sync::{Session};
-use mix_link::messages::{SessionConfig, PeerAuthenticator, ProviderAuthenticatorState, ClientAuthenticatorState};
+use mix_link::messages::{SessionConfig, PeerAuthenticator, ClientAuthenticatorState};
 use mix_link::commands::{Command};
 
 
@@ -24,17 +29,18 @@ fn main() {
      */
 
     let private_key_bytes = "7136a09854d112beb513dcd892af8789e277925386c44f7f85f29e98deb14eda".from_hex().unwrap();
-    let private_key = PrivateKey::from_bytes(&private_key_bytes).unwrap();
+    let private_key = StaticSecret::from(*array_ref![private_key_bytes, 0, 32]);
     //println!("public_key: {}\n", private_key.public_key().to_vec().to_hex());
     // public key is c8de601616d781d8e26589cc78399541ed9a89ef1fa7013a3c930a5b4da10f06
 
 
     let server_public_key_bytes = "48887bd92bfee3ea74d99aa0d489bea1b32f4e923ccf240ac5949d3ab3f23e12".from_hex().unwrap();
-    let mut server_public_key = PublicKey::default();
-    server_public_key.from_bytes(&server_public_key_bytes).unwrap();
+
     
-    let mut client_auth = ClientAuthenticatorState::default();
-    client_auth.peer_public_key = server_public_key;
+    let server_public_key = PublicKey::from(*array_ref![server_public_key_bytes, 0, 32]);
+    let client_auth = ClientAuthenticatorState{
+        peer_public_key: server_public_key.clone(),
+    };
     let client_authenticator = PeerAuthenticator::Client(client_auth);
     
     let client_config = SessionConfig {
