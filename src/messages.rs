@@ -1,4 +1,4 @@
-// sessions.rs - client and server protocol sessions
+// messages.rs - client and server protocol session messages
 // Copyright (C) 2021  David Anthony Stainton.
 //
 // This program is free software: you can redistribute it and/or modify
